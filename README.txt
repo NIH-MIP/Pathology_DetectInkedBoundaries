@@ -63,7 +63,7 @@
 # - polygon decimate function from 
 #     https://www.mathworks.com/matlabcentral/fileexchange/34639-decimate-polygon   
 #
-## USAGE
+## USAGE ###################################################################################################
 #   
 #   DetectInkedBoundaries('--Marked','/example/path/to/marked.svs','--Unmarked', '/example/path/to/unmarked.svs')
 #
