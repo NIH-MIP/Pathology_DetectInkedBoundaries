@@ -74,3 +74,13 @@
 #                   markings to 'clean' specimen 
 #
 #
+## TIPS AND TRICKS #########################################################################################
+#
+#  - Points can be added and deleted from ROIs after accept/reject stage, this stage is meant to exclude 
+#       false positives arising from other inked notes/markings (i.e. "EPE", arrows, etc).
+#
+#  - If several proposed ROIs are part of the same region, simply add more points to join ROIs as part of
+#       Workflow Step 7. A closing operation is performed that will merge all overlapping ROIs.
+#
+#  - If an ROI is open-ended (i.e. not closed circle), the tool will encompass only ink. To expand to other 
+#       regions, all add and/or drag points to encompass the full ROI area
