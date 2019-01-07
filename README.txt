@@ -29,6 +29,11 @@
 # digital imaging, which will be automatically registered to inked imaging
 # and annotations saved
 #
+# (Optional - NEW 1/7/2019) users can elect to manually outline inked borders, 
+# which are then automatically registered to un-inked imaging (if provided) and
+# annotations automatically saved. This may come in use if the 'auto'
+# option fails to accurately detect boundaries
+#
 # Annotations will be saved to the highest resolution image contained in
 # the digital stack (i.e. 40x if full digital image) provided at input.
 #
@@ -37,15 +42,21 @@
 # General workflow:
 #       1. read in image stack, find lowest magnification ratio (smallest
 #           sampling of full-res image)
-#       2. deconvolve RGB H&E image using Khan et al Random Forest Classifier
-#       3. Make a mask of tissue sample using H channel
-#       4. Use k-means clustering to detect inked markings from remaining
-#           channels within tissue sample
-#       5. Grow-shrink morhological operations to determine ROIs
-#       6. Initiate user interface for accept/reject of all proposed ROIs
-#       7. Initiate user interface to allow editing of accepted ROIs
-#       8. Correlation-based image registration of inked and un-inked
-#       9. Write annotation file 
+#       2. Option 'auto' ink detection/outlining
+#               2a. deconvolve RGB H&E image using Khan et al Classifier
+#               2b. Make a mask of tissue sample using H channel
+#               2c. Use k-means clustering to detect inked markings from 
+#                   remaining channels within tissue sample
+#               2d. Grow-shrink morhological operations to determine ROIs
+#               2e. Initiate user interface for accept/reject of all 
+#                   proposed ROIs
+#               2f. Initiate user interface to allow editing of accepted ROIs
+#          Option 'manual' ink outlining
+#               3a. user prompted for number of ROIs
+#               3b. initiate user interface for manual outlining 
+#               3c. after each ROI is outlined, user should close figure
+#       3. Correlation-based image registration of inked and un-inked
+#       4. Write annotation file 
 #           (.xml if supplied .svs or .cz if supplied .czi)
 #
 ## DEPENDENCIES #############################################################################################
@@ -65,14 +76,15 @@
 #
 ## USAGE ###################################################################################################
 #   
-#   DetectInkedBoundaries('--Marked','/example/path/to/marked.svs','--Unmarked', '/example/path/to/unmarked.svs')
+#   DetectInkedBoundaries('--Marked','/example/path/to/marked.svs','--Unmarked', '/example/path/to/unmarked.svs','--Method','auto')
 #
 #   input:
 #           1. (required) digital image in CZI or SVS format with inked markings
 #           2. (optional) digital image of specimen with removed markings,
 #                   if provided, will register low res digital images and register digital
-#                   markings to 'clean' specimen 
-#
+#                   markings to 'clean' specimen
+#           3. (optional) method of annotation. default = 'auto'. users who
+#                   wish to outline images themselves should use 'manual'
 #
 ## TIPS AND TRICKS #########################################################################################
 #
