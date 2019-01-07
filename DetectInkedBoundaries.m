@@ -1,6 +1,7 @@
 %% DetectInkedBoundaries
 %
 % Stephanie Harmon
+% stephanie.harmon@nih.gov
 % Leidos Biomedical Research
 % Molecular Imaging Branch, National Cancer Institute
 % National Institutes of Health
@@ -28,21 +29,34 @@
 % digital imaging, which will be automatically registered to inked imaging
 % and annotations saved
 %
+% (Optional - NEW 1/7/2019) users can elect to manually outline inked borders, 
+% which are then automatically registered to un-inked imaging (if provided) and
+% annotations automatically saved. This may come in use if the 'auto'
+% option fails to accurately detect boundaries
+%
 % Annotations will be saved to the highest resolution image contained in
 % the digital stack (i.e. 40x if full digital image) provided at input.
+%
+% This program utilizes other freely available toolboxes, see dependencies
 %
 % General workflow:
 %       1. read in image stack, find lowest magnification ratio (smallest
 %           sampling of full-res image)
-%       2. deconvolve RGB H&E image using Khan et al Random Forest Classifier
-%       3. Make a mask of tissue sample using H channel
-%       4. Use k-means clustering to detect inked markings from remaining
-%           channels within tissue sample
-%       5. Grow-shrink morhological operations to determine ROIs
-%       6. Initiate user interface for accept/reject of all proposed ROIs
-%       7. Initiate user interface to allow editing of accepted ROIs
-%       8. Correlation-based image registration of inked and un-inked
-%       9. Write annotation file 
+%       2. Option 'auto' ink detection/outlining
+%               2a. deconvolve RGB H&E image using Khan et al Classifier
+%               2b. Make a mask of tissue sample using H channel
+%               2c. Use k-means clustering to detect inked markings from 
+%                   remaining channels within tissue sample
+%               2d. Grow-shrink morhological operations to determine ROIs
+%               2e. Initiate user interface for accept/reject of all 
+%                   proposed ROIs
+%               2f. Initiate user interface to allow editing of accepted ROIs
+%          Option 'manual' ink outlining
+%               3a. user prompted for number of ROIs
+%               3b. initiate user interface for manual outlining 
+%               3c. after each ROI is outlined, user should close figure
+%       3. Correlation-based image registration of inked and un-inked
+%       4. Write annotation file 
 %           (.xml if supplied .svs or .cz if supplied .czi)
 %
 %% DEPENDENCIES
@@ -62,14 +76,26 @@
 %
 %% USAGE
 %   
-%   DetectInkedBoundaries('--Marked','/example/path/to/marked.svs','--Unmarked', '/example/path/to/unmarked.svs')
+%   DetectInkedBoundaries('--Marked','/example/path/to/marked.svs','--Unmarked', '/example/path/to/unmarked.svs','--Method','auto')
 %
 %   input:
 %           1. (required) digital image in CZI or SVS format with inked markings
 %           2. (optional) digital image of specimen with removed markings,
 %                   if provided, will register low res digital images and register digital
-%                   markings to 'clean' specimen 
+%                   markings to 'clean' specimen
+%           3. (optional) method of annotation. default = 'auto'. users who
+%                   wish to outline images themselves should use 'manual'
 %
+%% TIPS AND TRICKS 
+%
+%  - Points can be added and deleted from ROIs after accept/reject stage, this stage is meant to exclude 
+%       false positives arising from other inked notes/markings (i.e. "EPE", arrows, etc).
+%
+%  - If several proposed ROIs are part of the same region, simply add more points to join ROIs as part of
+%       Workflow Step 7. A closing operation is performed that will merge all overlapping ROIs.
+%
+%  - If an ROI is open-ended (i.e. not closed circle), the tool will encompass only ink. To expand to other 
+%       regions, all add and/or drag points to encompass the full ROI area
 %
 %% main
 function [] = DetectInkedBoundaries(varargin)
@@ -97,6 +123,20 @@ function [] = DetectInkedBoundaries(varargin)
         [filepath_u,name_u,ext_u] = fileparts(czi_u);
     else
         imgs_in = 1;
+    end 
+    
+    % MANUAL VS AUTO CONTOURS
+    meth_id = find(strcmpi(varargin,'--Method'));
+    if(size(meth_id) > 0)
+        method_in = varargin{meth_id+1};
+        %save path here
+        if(strcmpi(method_in,'manual'))
+            method = 'manual';
+        else
+            method = 'auto';
+        end  
+    else
+        method = 'auto';
     end 
     
 
@@ -154,7 +194,12 @@ function [] = DetectInkedBoundaries(varargin)
             case 1
                 switch mlevels
                     case 'single'
-                        boundaryLocation = processIMG(mIMG);
+                        if(strcmpi(method,'manual'))
+                            boundaryLocation = manualContour(mIMG);
+                        end
+                        if(strcmpi(method,'auto'))
+                            boundaryLocation = processIMG(mIMG);
+                        end
                         boundaries_m = boundaryLocation; %no scaling necessary
                         writeXML(boundaries_m,[filepath_m filesep name_m], ext_m) 
                         %save
@@ -162,7 +207,12 @@ function [] = DetectInkedBoundaries(varargin)
                         % select lowest level (highest ratio)
                         RefLevel_m = find(strcmpi(levelInfo_m(:,5),max_ratio));
                         mIMG = readinIMG(mMeta, mData, RefLevel_m);
-                        boundaryLocation = processIMG(mIMG);
+                        if(strcmpi(method,'manual'))
+                            boundaryLocation = manualContour(mIMG);
+                        end
+                        if(strcmpi(method,'auto'))
+                            boundaryLocation = processIMG(mIMG);
+                        end
                         %scale and save
                         boundaries_m = scalebounds(boundaryLocation, levelInfo_m(RefLevel_m,:));
                         writeXML(boundaries_m,[filepath_m filesep name_m], ext_m) 
@@ -172,7 +222,12 @@ function [] = DetectInkedBoundaries(varargin)
                     case 'single'
                         [RefLevel_m, RefLevel_u, uData, uMeta, levelInfo_u] = parseMatchedImage(czi_u, mlevels, levelInfo_m);
                         uIMG = readinIMG(uData, RefLevel_u);
-                        boundaryLocation = processIMG(mIMG);
+                        if(strcmpi(method,'manual'))
+                            boundaryLocation = manualContour(mIMG);
+                        end
+                        if(strcmpi(method,'auto'))
+                            boundaryLocation = processIMG(mIMG);
+                        end
                         boundaries_reg = registerImages(mIMG,uIMG,boundaryLocation,mlevels);
                         boundaries_m = boundaryLocation; %no scaling necessary
                         boundaries_u = scalebounds(boundaries_reg, levelInfo_u(RefLevel_u,:));
@@ -182,7 +237,12 @@ function [] = DetectInkedBoundaries(varargin)
                         [RefLevel_m, RefLevel_u, uData, uMeta, levelInfo_u] = parseMatchedImage(czi_u, mlevels, levelInfo_m);
                         mIMG = readinIMG(mData, RefLevel_m);
                         uIMG = readinIMG(uData, RefLevel_u);
-                        boundaryLocation = processIMG(mIMG);
+                        if(strcmpi(method,'manual'))
+                            boundaryLocation = manualContour(mIMG);
+                        end
+                        if(strcmpi(method,'auto'))
+                            boundaryLocation = processIMG(mIMG);
+                        end
                         boundaries_reg = registerImages(mIMG,uIMG,boundaryLocation,mlevels);
                         boundaries_m = scalebounds(boundaryLocation, levelInfo_m(RefLevel_m,:));
                         boundaries_u = scalebounds(boundaries_reg, levelInfo_u(RefLevel_u,:));
@@ -290,7 +350,7 @@ function [boundaryLocation] = processIMG(mIMG)
         tiss_mask(tiss_label == 1) = 1;
     end
     tiss_mask = imclearborder(tiss_mask); % clear markings along borders
-    tiss_mask = bwareaopen(tiss_mask,1000); % find regions >5 pixels
+    tiss_mask = bwareaopen(tiss_mask,1000); 
     tiss_mask = imfill(tiss_mask,'holes'); % fill holes to connect regions 
     se = strel('sphere',5); 
     tiss_mask = imdilate(tiss_mask,se); 
@@ -311,7 +371,7 @@ function [boundaryLocation] = processIMG(mIMG)
     
     %grow/shrink to smooth edges
     mask_init = imclearborder(mask_init); % clear markings along borders
-    mask_init = bwareaopen(mask_init,5); % find regions >5 pixels
+    mask_init = bwareaopen(mask_init,50); % find regions >50 pixels
     mask_init = imfill(mask_init,'holes'); % fill holes to connect regions
     se = strel('sphere',5);  % artifically grow, otherwise too many sections
     mask_init = imdilate(mask_init,se);
@@ -364,10 +424,10 @@ function [boundaryLocation] = processIMG(mIMG)
             pos = boundaries_final{ind};
             pos = fliplr(pos);
             %decimate to 5% of points
-            [pos_out,i_rem,CI]=DecimatePoly(pos,[0.05 2],false);
+            [pos_out,i_rem,CI]=DecimatePoly(pos,[0.10 2],false);
             %only display half of points
             pos_pts = false(size(pos_out,1),1);
-            pos_pts(1:round(0.5*size(pos_out,1))) = true;
+            pos_pts(1:round(0.25*size(pos_out,1))) = true;
             pos_pts = pos_pts(randperm(size(pos_pts,1)));
             % Create a freehand ROI.
              drawfreehand('Position', pos_out, 'Waypoints', pos_pts, 'Smoothing',0);
@@ -390,14 +450,58 @@ function [boundaryLocation] = processIMG(mIMG)
         se = strel('sphere',5);  % artifically grow, otherwise too many sections
         mask_all = imdilate(mask_all,se);
         mask_all = imfill(mask_all,'holes'); % fill holes again
-        mask_all = imerode(mask_all,se);
+        se = strel('line',25,45);  %line object to bring detected edges from outside of ink to inside
+        mask_all = imerode(mask_all,se); %shrink to fall within boundaries
         
         boundaryLocation = bwboundaries(mask_all); % identify boundaries of objects
         close(f)
 
 end
 
+%% color decon and contour generation
+function [boundaryLocation] = manualContour(mIMG) 
+
+    num_rois = inputdlg('Enter number of ROIs:','Input',[1 25],{'1'});
+    N_roi = str2num(num_rois{1});
+    if(N_roi > 1)
+        g = msgbox('close image window after each ROI');
+    end
+
+    %allow freehand editing
+    f = figure;
+    imshow(mIMG, []);
+    
+    all_pts = [];    
+    for roi_i = 1:N_roi 
+        drawfreehand;
         
+        set(gcf, 'CloseRequestFcn', ' uiresume(gcbf); set(gcf,''Visible'',''Off'');')
+        uiwait(gcf)
+
+        hfhs = findobj(gcf, 'Type', 'images.roi.Freehand');
+        i_pts = hfhs.Position;
+        all_pts = cat(1,all_pts,{i_pts});
+        clear hfhs
+    end
+    
+    %find final boundaries, merging overlapping regions    
+        boundaryLocation = [];
+        mask_all = zeros(size(mIMG,1),size(mIMG,2));
+        for ind = 1:size(all_pts,1)
+            if(size(all_pts{ind})>0)
+                b_pts = all_pts{ind};
+                mask_b = poly2mask(b_pts(:,1),b_pts(:,2),size(mIMG,1),size(mIMG,2));
+                mask_all(find(mask_b>0)) = 1;
+            end
+        end
+
+        boundaryLocation = bwboundaries(mask_all); % identify boundaries of objects
+        close(f)
+        close(g)
+end
+
+
+
 %% registration
 %Register grayscale images
 
@@ -492,8 +596,8 @@ end
                 %edit ROI points
                     pts_loc = find(contains(roi_str,'<Points>'));
                     roi_pts = '';
-                    for i = 1:length(boundaryLocation{1,1})
-                        pts_i = sprintf('%.0f,%.0f ',boundaryLocation{1,1}(i,2),boundaryLocation{1,1}(i,1));
+                    for i = 1:length(boundaryLocation{jj})
+                        pts_i = sprintf('%.0f,%.0f ',boundaryLocation{jj}(i,2),boundaryLocation{jj}(i,1));
                         roi_pts = [roi_pts pts_i];
                     end
                     roi_str(pts_loc) = strrep(roi_str(pts_loc),'NULL',roi_pts);
@@ -528,10 +632,10 @@ end
                         fprintf(fileID,'%s\r\n',roi_str(mm));
                     end
                 %edit ROI points
-                    for i = 1:length(boundaryLocation{1,1})
+                    for i = 1:length(boundaryLocation{jj})
                         ver_str = svs_master.roi_vertex;
-                        ver_str = strrep(ver_str,'NUX',sprintf('%.0f',boundaryLocation{1,1}(i,2)));
-                        ver_str = strrep(ver_str,'NUY',sprintf('%.0f',boundaryLocation{1,1}(i,1)));
+                        ver_str = strrep(ver_str,'NUX',sprintf('%.0f',boundaryLocation{jj}(i,2)));
+                        ver_str = strrep(ver_str,'NUY',sprintf('%.0f',boundaryLocation{jj}(i,1)));
                         fprintf(fileID,'%s\r\n',ver_str);
                     end
                 %send ROI footer    
