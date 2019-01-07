@@ -461,15 +461,15 @@ end
 %% color decon and contour generation
 function [boundaryLocation] = manualContour(mIMG) 
 
+    %allow freehand editing
+    f = figure;
+    imshow(mIMG, []);
+    
     num_rois = inputdlg('Enter number of ROIs:','Input',[1 25],{'1'});
     N_roi = str2num(num_rois{1});
     if(N_roi > 1)
         g = msgbox('close image window after each ROI');
     end
-
-    %allow freehand editing
-    f = figure;
-    imshow(mIMG, []);
     
     all_pts = [];    
     for roi_i = 1:N_roi 
