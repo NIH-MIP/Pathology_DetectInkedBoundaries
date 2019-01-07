@@ -92,7 +92,9 @@
 #       false positives arising from other inked notes/markings (i.e. "EPE", arrows, etc).
 #
 #  - If several proposed ROIs are part of the same region, simply add more points to join ROIs as part of
-#       Workflow Step 7. A closing operation is performed that will merge all overlapping ROIs.
+#       Workflow Step 2f. A closing operation is performed that will merge all overlapping ROIs.
 #
 #  - If an ROI is open-ended (i.e. not closed circle), the tool will encompass only ink. To expand to other 
 #       regions, all add and/or drag points to encompass the full ROI area
+#
+#  - If program is running slow (images slow to load), increase your JAVA heapspace in MATLAB
